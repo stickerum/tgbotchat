@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>IPC test app</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: helvetica;
+        }
+
+        *:focus {
+            outline: none;
+        }
+
+        #chat {
+            padding: 10px;
+            margin-bottom: 52px;
+            display: flex;
+            flex-direction: column;
+            /*align-items: center;*/
+        }
+
+        .message-field {
+            padding: 10px;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #fff;
+            box-shadow: 0 3px 10px #eee;
+            display: flex;
+        }
+
+        .dn {
+            display: none;
+        }
+
+        #text {
+            border: none;
+            border-radius: 16px;
+            padding: 6px 12px;
+            background-color: #eee;
+            margin-right: 7px;
+            width: auto;
+            flex: 1;
+            font-size: medium;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 7px 14px;
+            border-radius: 16px;
+            background-color: #44bbff;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .button:hover {
+            background-color: #2598da;
+        }
+
+        .messages {
+            /*margin-top: 10px;*/
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message {
+            border-radius: 20px;
+            padding: 8px 15px;
+            margin-top: 5px;
+            margin-bottom: 5px;
+            display: inline-block;
+            max-width: 70%;
+            word-break: break-all;
+        }
+
+        .yours {
+            align-items: flex-start;
+        }
+
+        .yours .message {
+            margin-right: 25%;
+            background-color: #eee;
+            position: relative;
+        }
+
+        .yours .message.last:before {
+            content: "";
+            position: absolute;
+            z-index: 0;
+            bottom: 0;
+            left: -7px;
+            height: 20px;
+            width: 20px;
+            background: #eee;
+            border-bottom-right-radius: 15px;
+        }
+        .yours .message.last:after {
+            content: "";
+            position: absolute;
+            z-index: 1;
+            bottom: 0;
+            left: -10px;
+            width: 10px;
+            height: 20px;
+            background: white;
+            border-bottom-right-radius: 10px;
+        }
+
+        .mine {
+            align-items: flex-end;
+        }
+
+        .mine .message {
+            color: white;
+            margin-left: 25%;
+            background: linear-gradient(to bottom, #00D0EA 0%, #0085D1 100%);
+            background-attachment: fixed;
+            position: relative;
+        }
+
+        .mine .message.last:before {
+            content: "";
+            position: absolute;
+            z-index: 0;
+            bottom: 0;
+            right: -8px;
+            height: 20px;
+            width: 20px;
+            background: linear-gradient(to bottom, #00D0EA 0%, #0085D1 100%);
+            background-attachment: fixed;
+            border-bottom-left-radius: 15px;
+        }
+
+        .mine .message.last:after {
+            content: "";
+            position: absolute;
+            z-index: 1;
+            bottom: 0;
+            right: -10px;
+            width: 10px;
+            height: 20px;
+            background: white;
+            border-bottom-left-radius: 10px;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="chat" class="chat"></div>
+<div id="message-field" class="message-field dn">
+    <input type="text" id="text">
+    <div class="button" onclick="sendMessage()">Send</div>
+</div>
+
+<script>
+  const { ipcRenderer } = require('electron');
+
+  /** Define channel name */
+  const CHANNEL_NAME = 'main';
+
+  let chat;
+
+  /** Create a processor for a button's click event */
+  const sendMessage = (recipient) => {
+    /** Message to be sent */
+    let message = document.getElementById('text').value;
+
+    ipcRenderer.send('outbox', {
+      message: message,
+      recipient: recipient
+    });
+
+    document.getElementById('text').value = '';
+  };
+
+  const addMessage = (data, isOwn) => {
+    let wrapper = document.createElement('DIV');
+    let message = document.createElement('DIV');
+
+    message.innerText = data.text;
+    message.classList.add('message');
+
+    wrapper.classList.add(isOwn ? 'mine' : 'yours', 'messages');
+    wrapper.appendChild(message);
+
+    document.getElementById('chat').appendChild(wrapper);
+  };
+
+  ipcRenderer.on(CHANNEL_NAME, (event, data) => {
+    if (!chat) {
+      chat = data.chat.id;
+
+      const title = document.createElement('DIV');
+
+      title.innerHTML = `Chat with a <b>${data.chat.first_name}</b>`;
+      title.style = 'text-align: center;';
+
+      document.getElementById('chat').appendChild(title);
+
+      document.getElementById('message-field').classList.remove('dn');
+    }
+
+    if (chat !== data.chat.id) return;
+
+    console.log(data);
+
+    try {
+      addMessage(data, data.from.is_bot)
+    } catch (e) {
+      console.error(e);
+    }
+  });
+
+  document.getElementById('text').addEventListener('keyup', function(event) {
+    if (event.key === 'Enter') {
+      sendMessage(chat)
+    }
+  });
+</script>
+</body>
+</html>
